@@ -65,7 +65,7 @@ As mentioned above, they are isolated from each other, but you can configure the
 
 In Sublime Merge, go to **Preferences** → **Editor**, then in **Editor Path** paste `/app/bin/subl`.
 
-Now in Sublime Text, go to **Preferences** → **Settings** and paste the key `“sublime_merge_path”: “/app/bin/smerge”,`
+Now in Sublime Text, go to **Preferences** → **Settings** and paste the key `"sublime_merge_path": "/app/bin/smerge",`
 
 ## Additional notes
 
