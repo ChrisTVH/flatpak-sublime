@@ -73,8 +73,4 @@ You can download the files manually from the official website by selecting the d
 
 You can package it with **builder.sh** or from **setup.sh** without any problems. This is useful if you want to have specific Sublime builds.
 
-The scripts are all in Spanish except for the commented lines in the code. I was too lazy to put it in English, but if anyone complains, I might add multilingual support.
-
 Remember that if the path where the icons are stored in the Icon/ folder or where the application is stored in the opt/ folder differs from the current one, this script will not work.
-
-This was tested on: Sublime Text Build 4200 and Sublime Merge Build 2112.
