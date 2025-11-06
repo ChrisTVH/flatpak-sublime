@@ -10,41 +10,62 @@ MERGE_BUNDLE="${TARGET_DIR}/sublime-merge.flatpak"
 TEXT_APPID="com.sublimetext.sublime_text"
 MERGE_APPID="com.sublimemerge.sublime_merge"
 
+# Install behavior: if true, install/update only if the bundle has a different commit
+INSTALL_ONLY_IF_NEWER=true
+
 log()  { printf "\033[1;36m[setup]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[setup]\033[0m %s\n" "$*"; }
 err()  { printf "\033[1;31m[setup]\033[0m %s\n" "$*" >&2; }
 
 check_bundle_exists() { [[ -f "$1" ]]; }
 is_installed() { flatpak list --app --columns=application | grep -qx "$1"; }
-
 ensure_script() {
   local path="$1" name="$2"
-  [[ -x "$path" ]] || err "No se encontró $name ejecutable en: $path"
+  [[ -x "$path" ]] || err "The executable $name was not found in: $path"
+}
+
+# -------- Version/commit helpers --------
+get_installed_commit() {
+  local appid="$1"
+  flatpak info --show-commit "$appid" 2>/dev/null || true
+}
+
+get_bundle_commit() {
+  local bundle="$1"
+  flatpak info --file="$bundle" --show-commit 2>/dev/null || true
+}
+
+same_version_as_installed() {
+  local bundle="$1" appid="$2"
+  local installed_commit bundle_commit
+  installed_commit="$(get_installed_commit "$appid")"
+  bundle_commit="$(get_bundle_commit "$bundle")"
+  [[ -n "$installed_commit" && -n "$bundle_commit" && "$installed_commit" == "$bundle_commit" ]]
 }
 
 # -------- Construction --------
 build_packages_normal() {
   if check_bundle_exists "$TEXT_BUNDLE" && check_bundle_exists "$MERGE_BUNDLE"; then
-    log "Los paquetes ya están construidos. Volviendo al menú principal..."
+    log "The packages are already built. Returning to the main menu..."
     return
   fi
   ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Ejecutando builder.sh (construcción normal)..."
+  log "Running builder.sh (normal build)..."
   "${ROOT_DIR}/builder.sh"
 }
 
 build_packages_force() {
   ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Forzando construcción de todos modos..."
+  log "Forcing building anyway..."
   "${ROOT_DIR}/builder.sh"
 }
 
 build_menu() {
-  echo "=== Construir paquetes ==="
-  echo "1) Construcción normal (respeta bundles existentes)"
-  echo "2) Forzar construcción (siempre reconstruye ambos)"
-  echo "3) Volver"
-  read -rp "Opción: " opt
+  echo "=== Build packages ==="
+  echo "1) Normal build (respects existing bundles)"
+  echo "2) Force build (always rebuilds both)"
+  echo "3) Back"
+  read -rp "Option: " opt
   case "$opt" in
     1) build_packages_normal ;;
     2) build_packages_force ;;
@@ -55,71 +76,110 @@ build_menu() {
 # -------- Installation --------
 install_one() {
   local bundle="$1" appid="$2" name="$3"
+
   if ! check_bundle_exists "$bundle"; then
-    warn "No existe el bundle de $name en target/. Construye primero."
+    warn "The $name bundle does not exist in target/. Build first."
     return
   fi
+
   if is_installed "$appid"; then
-    read -rp "$name ya está instalado. ¿Quieres actualizarlo desde el bundle? (s/n): " ans
-    if [[ "$ans" =~ ^[sS]$ ]]; then
+    # It's the same
+    if same_version_as_installed "$bundle" "$appid"; then
+      if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
+        log "$name is already at the same version (commit match). Skipping."
+        return
+      fi
+      read -rp "$name is already at the same version (commit match). Reinstall anyway? (y/n): " ans
+      if [[ "$ans" =~ ^[yY]$ ]]; then
+        flatpak install --user --noninteractive --reinstall "$bundle"
+        log "$name reinstalled (same commit)."
+      else
+        log "Skipping reinstall of $name (same version)."
+      fi
+      return
+    fi
+
+    # It's different
+    if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
       flatpak install --user --noninteractive --reinstall "$bundle"
-      log "$name actualizado desde el bundle."
+      log "$name updated from the bundle (newer commit)."
     else
-      log "Omitiendo actualización de $name."
+      read -rp "$name is installed but differs from the bundle. Update from bundle? (y/n): " ans
+      if [[ "$ans" =~ ^[yY]$ ]]; then
+        flatpak install --user --noninteractive --reinstall "$bundle"
+        log "$name updated from the bundle."
+      else
+        log "Omitting update of $name."
+      fi
     fi
   else
     flatpak install --user --noninteractive "$bundle"
-    log "$name instalado."
+    log "$name installed."
+  fi
+}
+
+toggle_install_only_if_newer() {
+  if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
+    INSTALL_ONLY_IF_NEWER=false
+    log "Install behavior: Only install newer = OFF (interactive updates)"
+  else
+    INSTALL_ONLY_IF_NEWER=true
+    log "Install behavior: Only install newer = ON (skip if same commit, auto-update if different)"
   fi
 }
 
 install_packages() {
-  echo "=== Instalar paquetes ==="
-  echo "1) Sublime Text"
-  echo "2) Sublime Merge"
-  echo "3) Ambos"
-  echo "4) Volver"
-  read -rp "Opción: " opt
-  case "$opt" in
-    1) install_one "$TEXT_BUNDLE" "$TEXT_APPID" "Sublime Text" ;;
-    2) install_one "$MERGE_BUNDLE" "$MERGE_APPID" "Sublime Merge" ;;
-    3)
-      install_one "$TEXT_BUNDLE" "$TEXT_APPID" "Sublime Text"
-      install_one "$MERGE_BUNDLE" "$MERGE_APPID" "Sublime Merge"
-      ;;
-    *) return ;;
-  esac
+  while true; do
+    echo "=== Install packages ==="
+    echo "1) Sublime Text"
+    echo "2) Sublime Merge"
+    echo "3) Both"
+    echo "4) Toggle 'Only install newer versions' (current: ${INSTALL_ONLY_IF_NEWER})"
+    echo "5) Back"
+    read -rp "Option: " opt
+    case "$opt" in
+      1) install_one "$TEXT_BUNDLE" "$TEXT_APPID" "Sublime Text" ;;
+      2) install_one "$MERGE_BUNDLE" "$MERGE_APPID" "Sublime Merge" ;;
+      3)
+        install_one "$TEXT_BUNDLE" "$TEXT_APPID" "Sublime Text"
+        install_one "$MERGE_BUNDLE" "$MERGE_APPID" "Sublime Merge"
+        ;;
+      4) toggle_install_only_if_newer ;;
+      5) break ;;
+      *) echo "Invalid option" ;;
+    esac
+  done
 }
 
 # -------- Uninstallation --------
 uninstall_one() {
   local appid="$1" name="$2"
   if is_installed "$appid"; then
-    read -rp "¿Desinstalar $name? (s/n): " ans
-    if [[ "$ans" =~ ^[sS]$ ]]; then
-      read -rp "¿Eliminar también los datos de usuario de $name? (s/n): " del
-      if [[ "$del" =~ ^[sS]$ ]]; then
+    read -rp "Uninstall $name? (y/n): " ans
+    if [[ "$ans" =~ ^[yY]$ ]]; then
+      read -rp "Also delete user data for $name? (y/n): " del
+      if [[ "$del" =~ ^[yY]$ ]]; then
         flatpak uninstall --user --delete-data --noninteractive "$appid"
-        log "$name desinstalado y datos eliminados."
+        log "$name uninstalled and data deleted."
       else
         flatpak uninstall --user --noninteractive "$appid"
-        log "$name desinstalado (datos conservados)."
+        log "$name uninstalled (data retained)."
       fi
     else
-      log "Desinstalación de $name cancelada."
+      log "Uninstallation of $name canceled."
     fi
   else
-    warn "$name no está instalado."
+    warn "$name is not installed."
   fi
 }
 
 uninstall_packages() {
-  echo "=== Desinstalar paquetes ==="
+  echo "=== Uninstall packages ==="
   echo "1) Sublime Text"
   echo "2) Sublime Merge"
-  echo "3) Ambos"
-  echo "4) Volver"
-  read -rp "Opción: " opt
+  echo "3) Both"
+  echo "4) Back"
+  read -rp "Option: " opt
   case "$opt" in
     1) uninstall_one "$TEXT_APPID" "Sublime Text" ;;
     2) uninstall_one "$MERGE_APPID" "Sublime Merge" ;;
@@ -134,25 +194,25 @@ uninstall_packages() {
 # -------- Cleaning --------
 clean_project() {
   ensure_script "${ROOT_DIR}/cleaner.sh" "cleaner.sh"
-  log "Ejecutando cleaner.sh..."
+  log "Running cleaner.sh..."
   "${ROOT_DIR}/cleaner.sh"
 }
 
 # ========= Main menu =========
 while true; do
   echo "=== Setup CLI ==="
-  echo "1) Construir paquetes"
-  echo "2) Instalar paquetes"
-  echo "3) Desinstalar paquetes"
-  echo "4) Limpiar proyecto"
-  echo "5) Salir"
-  read -rp "Opción: " choice
+  echo "1) Build packages"
+  echo "2) Install packages"
+  echo "3) Uninstall packages"
+  echo "4) Clean up project"
+  echo "5) Exit"
+  read -rp "Option: " choice
   case "$choice" in
     1) build_menu ;;
     2) install_packages ;;
     3) uninstall_packages ;;
     4) clean_project ;;
     5) exit 0 ;;
-    *) echo "Opción inválida" ;;
+    *) echo "Invalid option" ;;
   esac
 done

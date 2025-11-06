@@ -34,10 +34,10 @@ check_files_ready() {
 
 log() { printf "\033[1;36m[builder]\033[0m %s\n" "$*"; }
 err() { printf "\033[1;31m[error]\033[0m %s\n" "$*" >&2; }
-trap 'err "Fallo durante la construcción. Revisa el último paso ejecutado."' ERR
+trap 'err "Error during build. Check the last step executed."' ERR
 
 require_cmd() {
-  for c in "$@"; do command -v "$c" >/dev/null 2>&1 || err "Falta comando requerido: $c"; done
+  for c in "$@"; do command -v "$c" >/dev/null 2>&1 || err "Missing required command: $c"; done
 }
 require_cmd curl tar rsync flatpak flatpak-builder find
 
@@ -47,18 +47,18 @@ sync_extracted_contents() {
   local topdir
   topdir="$(find "$src_root" -mindepth 1 -maxdepth 1 -type d | head -n1)"
   if [[ -z "${topdir:-}" ]]; then
-    err "No se encontró directorio raíz extraído para ${app_name} en ${src_root}"
+    err "No extracted root directory found for ${app_name} in ${src_root}"
   fi
 
-  # Elimina .desktop upstream si existiera
+  # Remove .desktop upstream if it exists
   find "$topdir" -type f -name "${app_name}.desktop" -exec rm -f {} +
 
-  # Copia SOLO el contenido interno (no la carpeta raíz)
+  # Copy ONLY the internal content (not the root folder)
   rsync -a --delete "${topdir}/" "${dst_dir}/"
 }
 
 # ========= Clean & prep =========
-log "Preparando estructura y limpieza previa..."
+log "Preparing structure and preliminary cleaning..."
 mkdir -p "${TARGET_DIR}"
 rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
@@ -67,9 +67,9 @@ mkdir -p "${TEXT_FILES_DIR}" "${MERGE_FILES_DIR}"
 
 # ========= Download & Extract if needed =========
 if check_files_ready "${TEXT_FILES_DIR}" "sublime_text"; then
-  log "Sublime Text ya presente en files/, omitiendo descarga y extracción."
+  log "Sublime Text already present in files/, skipping download and extraction."
 else
-  log "Descargando y preparando Sublime Text..."
+  log "Downloading and preparing Sublime Text..."
   curl -fL "${TEXT_URL}" -o "${TMP_DIR}/sublime_text.tar.xz"
   mkdir -p "${TMP_DIR}/sublime_text_build"
   tar -xJf "${TMP_DIR}/sublime_text.tar.xz" -C "${TMP_DIR}/sublime_text_build"
@@ -77,9 +77,9 @@ else
 fi
 
 if check_files_ready "${MERGE_FILES_DIR}" "sublime_merge"; then
-  log "Sublime Merge ya presente en files/, omitiendo descarga y extracción."
+  log "Sublime Merge already present in files/, skipping download and extraction."
 else
-  log "Descargando y preparando Sublime Merge..."
+  log "Downloading and preparing Sublime Merge..."
   curl -fL "${MERGE_URL}" -o "${TMP_DIR}/sublime_merge.tar.xz"
   mkdir -p "${TMP_DIR}/sublime_merge_build"
   tar -xJf "${TMP_DIR}/sublime_merge.tar.xz" -C "${TMP_DIR}/sublime_merge_build"
@@ -87,7 +87,7 @@ else
 fi
 
 # ========= Build (force-clean) =========
-log "Construyendo Flatpak Sublime Text..."
+log "Building Flatpak Sublime Text..."
 flatpak-builder \
   --repo="${TEXT_REPO_DIR}" \
   --force-clean \
@@ -95,7 +95,7 @@ flatpak-builder \
   "${TEXT_BUILD_DIR}" \
   "${TEXT_MANIFEST}"
 
-log "Construyendo Flatpak Sublime Merge..."
+log "Building Flatpak Sublime Merge..."
 flatpak-builder \
   --repo="${MERGE_REPO_DIR}" \
   --force-clean \
@@ -104,11 +104,11 @@ flatpak-builder \
   "${MERGE_MANIFEST}"
 
 # ========= Bundle export =========
-log "Exportando bundles a target/..."
+log "Exporting bundles to target/..."
 flatpak build-bundle "${TEXT_REPO_DIR}" "${TARGET_DIR}/sublime-text.flatpak" "${TEXT_APPID}"
 flatpak build-bundle "${MERGE_REPO_DIR}" "${TARGET_DIR}/sublime-merge.flatpak" "${MERGE_APPID}"
 
 # ========= Final clean (optional) =========
 rm -rf "${TMP_DIR}"
 
-log "Construcción completa. Bundles listos en: ${TARGET_DIR}"
+log "Building complete. Bundles ready in: ${TARGET_DIR}"
