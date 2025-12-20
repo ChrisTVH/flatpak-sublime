@@ -1,7 +1,7 @@
 {
   "app-id": "com.sublimemerge.sublime_merge",
   "runtime": "org.freedesktop.Platform",
-  "runtime-version": "24.08",
+  "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
   "command": "sublime_merge",
   "modules": [
@@ -11,8 +11,12 @@
       "build-commands": [
         "mkdir -p /app/opt/sublime_merge",
         "cp -r * /app/opt/sublime_merge/",
+
         "mkdir -p /app/bin",
         "ln -s /app/opt/sublime_merge/sublime_merge /app/bin/sublime_merge",
+
+        "mkdir -p /app/share/app-info/xmls",
+        "cp -a share/app-info/xmls/* /app/share/app-info/xmls/",
 
         "bash -c 'echo \"#!/usr/bin/env bash\" > /app/bin/git-host'",
         "bash -c 'echo \"exec flatpak-spawn --host /usr/bin/git \\\"\\$@\\\"\" >> /app/bin/git-host'",

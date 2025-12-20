@@ -12,14 +12,18 @@ This project packages **Sublime Text** and **Sublime Merge** in Flatpak format, 
 
 ## Requirements
 
-You need the following packages:
+### You need the following packages:
 
-- curl, tar, rsync, and find.
-- flatpak and flatpak-builder.
+- curl tar rsync flatpak flatpak-builder find sha256sum gzip.
+
+### Recommended versions:
+
+- Flatpak Builder 1.4.7 or higher.
+- Flatpak 1.16.1 or higher.
 
 Depending on your Linux distribution, the installation method may vary, which is why it is not specified.
 
-### Install the Freedesktop SDK 24.08
+### Install the Freedesktop SDK 25.08
 
 First, make sure you have Flathub configured as remote (if you haven't already):
 
@@ -30,7 +34,7 @@ flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flat
 Then install the SDK:
 
 ```bash
-flatpak install flathub org.freedesktop.Sdk//24.08
+flatpak install flathub org.freedesktop.Sdk//25.08
 ```
 
 ## Using `setup.sh`
@@ -74,3 +78,5 @@ You can download the files manually from the official website by selecting the d
 You can package it with **builder.sh** or from **setup.sh** without any problems. This is useful if you want to have specific Sublime builds.
 
 Remember that if the path where the icons are stored in the Icon/ folder or where the application is stored in the opt/ folder differs from the current one, this script will not work.
+
+If you used an earlier version of the project to package Sublime Text/Merge, it is recommended that you reinstall it while retaining your user data.

@@ -32,7 +32,7 @@ get_installed_commit() {
 
 get_bundle_commit() {
   local bundle="$1"
-  flatpak info --file="$bundle" --show-commit 2>/dev/null || true
+  flatpak bundle-info "$bundle" --show-commit 2>/dev/null || true
 }
 
 same_version_as_installed() {
@@ -40,23 +40,25 @@ same_version_as_installed() {
   local installed_commit bundle_commit
   installed_commit="$(get_installed_commit "$appid")"
   bundle_commit="$(get_bundle_commit "$bundle")"
-  [[ -n "$installed_commit" && -n "$bundle_commit" && "$installed_commit" == "$bundle_commit" ]]
+  [[ -z "$bundle_commit" ]] && { warn "Bundle has no commit; will treat as different."; return 1; }
+  [[ -n "$installed_commit" && "$installed_commit" == "$bundle_commit" ]]
 }
+
 
 # -------- Construction --------
 build_packages_normal() {
   if check_bundle_exists "$TEXT_BUNDLE" && check_bundle_exists "$MERGE_BUNDLE"; then
-    log "The packages are already built. Returning to the main menu..."
+    log "The packages are already built. Returning to the main menu…"
     return
   fi
   ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Running builder.sh (normal build)..."
+  log "Running builder.sh (normal build)…"
   "${ROOT_DIR}/builder.sh"
 }
 
 build_packages_force() {
   ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Forcing building anyway..."
+  log "Forcing building anyway…"
   "${ROOT_DIR}/builder.sh"
 }
 
@@ -83,7 +85,6 @@ install_one() {
   fi
 
   if is_installed "$appid"; then
-    # It's the same
     if same_version_as_installed "$bundle" "$appid"; then
       if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
         log "$name is already at the same version (commit match). Skipping."
@@ -91,7 +92,10 @@ install_one() {
       fi
       read -rp "$name is already at the same version (commit match). Reinstall anyway? (y/n): " ans
       if [[ "$ans" =~ ^[yY]$ ]]; then
-        flatpak install --user --noninteractive --reinstall "$bundle"
+        if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
+          err "Failed to reinstall $name. Returning to menu."
+          return
+        fi
         log "$name reinstalled (same commit)."
       else
         log "Skipping reinstall of $name (same version)."
@@ -99,24 +103,36 @@ install_one() {
       return
     fi
 
-    # It's different
+    # Installed but differs
     if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
-      flatpak install --user --noninteractive --reinstall "$bundle"
+      if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
+        err "Failed to update $name. Returning to menu."
+        return
+      fi
       log "$name updated from the bundle (newer commit)."
     else
       read -rp "$name is installed but differs from the bundle. Update from bundle? (y/n): " ans
       if [[ "$ans" =~ ^[yY]$ ]]; then
-        flatpak install --user --noninteractive --reinstall "$bundle"
+        if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
+          err "Failed to update $name. Returning to menu."
+          return
+        fi
         log "$name updated from the bundle."
       else
         log "Omitting update of $name."
       fi
     fi
   else
-    flatpak install --user --noninteractive "$bundle"
+    # Not installed: install from local bundle
+    if ! flatpak install --user --noninteractive --bundle "$bundle"; then
+      err "Failed to install $name. Returning to menu."
+      return
+    fi
     log "$name installed."
   fi
 }
+
+
 
 toggle_install_only_if_newer() {
   if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
@@ -194,7 +210,7 @@ uninstall_packages() {
 # -------- Cleaning --------
 clean_project() {
   ensure_script "${ROOT_DIR}/cleaner.sh" "cleaner.sh"
-  log "Running cleaner.sh..."
+  log "Running cleaner.sh…"
   "${ROOT_DIR}/cleaner.sh"
 }
 
