@@ -46,19 +46,20 @@ same_version_as_installed() {
 
 
 # -------- Construction --------
-build_packages_normal() {
-  if check_bundle_exists "$TEXT_BUNDLE" && check_bundle_exists "$MERGE_BUNDLE"; then
+build_packages() {
+  local force="${1:-false}"
+
+  if [[ "$force" == false ]] && check_bundle_exists "$TEXT_BUNDLE" && check_bundle_exists "$MERGE_BUNDLE"; then
     log "The packages are already built. Returning to the main menu…"
     return
   fi
-  ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Running builder.sh (normal build)…"
-  "${ROOT_DIR}/builder.sh"
-}
 
-build_packages_force() {
   ensure_script "${ROOT_DIR}/builder.sh" "builder.sh"
-  log "Forcing building anyway…"
+  if [[ "$force" == true ]]; then
+    log "Forcing building anyway…"
+  else
+    log "Running builder.sh (normal build)…"
+  fi
   "${ROOT_DIR}/builder.sh"
 }
 
@@ -69,13 +70,22 @@ build_menu() {
   echo "3) Back"
   read -rp "Option: " opt
   case "$opt" in
-    1) build_packages_normal ;;
-    2) build_packages_force ;;
+    1) build_packages false ;;
+    2) build_packages true ;;
     *) return ;;
   esac
 }
 
 # -------- Installation --------
+do_flatpak_install() {
+  local bundle="$1" name="$2"
+  if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
+    err "Failed to install $name. Returning to menu."
+    return 1
+  fi
+  return 0
+}
+
 install_one() {
   local bundle="$1" appid="$2" name="$3"
 
@@ -92,11 +102,9 @@ install_one() {
       fi
       read -rp "$name is already at the same version (commit match). Reinstall anyway? (y/n): " ans
       if [[ "$ans" =~ ^[yY]$ ]]; then
-        if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
-          err "Failed to reinstall $name. Returning to menu."
-          return
+        if do_flatpak_install "$bundle" "$name"; then
+          log "$name reinstalled (same commit)."
         fi
-        log "$name reinstalled (same commit)."
       else
         log "Skipping reinstall of $name (same version)."
       fi
@@ -105,30 +113,24 @@ install_one() {
 
     # Installed but differs
     if [[ "$INSTALL_ONLY_IF_NEWER" == true ]]; then
-      if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
-        err "Failed to update $name. Returning to menu."
-        return
+      if do_flatpak_install "$bundle" "$name"; then
+        log "$name updated from the bundle (newer commit)."
       fi
-      log "$name updated from the bundle (newer commit)."
     else
       read -rp "$name is installed but differs from the bundle. Update from bundle? (y/n): " ans
       if [[ "$ans" =~ ^[yY]$ ]]; then
-        if ! flatpak install --user --noninteractive --reinstall --bundle "$bundle"; then
-          err "Failed to update $name. Returning to menu."
-          return
+        if do_flatpak_install "$bundle" "$name"; then
+          log "$name updated from the bundle."
         fi
-        log "$name updated from the bundle."
       else
         log "Omitting update of $name."
       fi
     fi
   else
     # Not installed: install from local bundle
-    if ! flatpak install --user --noninteractive --bundle "$bundle"; then
-      err "Failed to install $name. Returning to menu."
-      return
+    if do_flatpak_install "$bundle" "$name"; then
+      log "$name installed."
     fi
-    log "$name installed."
   fi
 }
 
@@ -168,6 +170,17 @@ install_packages() {
 }
 
 # -------- Uninstallation --------
+do_flatpak_uninstall() {
+  local appid="$1" name="$2" delete_data="${3:-false}"
+  if [[ "$delete_data" == true ]]; then
+    flatpak uninstall --user --delete-data --noninteractive "$appid"
+    log "$name uninstalled and data deleted."
+  else
+    flatpak uninstall --user --noninteractive "$appid"
+    log "$name uninstalled (data retained)."
+  fi
+}
+
 uninstall_one() {
   local appid="$1" name="$2"
   if is_installed "$appid"; then
@@ -175,11 +188,9 @@ uninstall_one() {
     if [[ "$ans" =~ ^[yY]$ ]]; then
       read -rp "Also delete user data for $name? (y/n): " del
       if [[ "$del" =~ ^[yY]$ ]]; then
-        flatpak uninstall --user --delete-data --noninteractive "$appid"
-        log "$name uninstalled and data deleted."
+        do_flatpak_uninstall "$appid" "$name" true
       else
-        flatpak uninstall --user --noninteractive "$appid"
-        log "$name uninstalled (data retained)."
+        do_flatpak_uninstall "$appid" "$name" false
       fi
     else
       log "Uninstallation of $name canceled."

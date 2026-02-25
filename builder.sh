@@ -3,11 +3,11 @@ set -euo pipefail
 
 # ========= Config =========
 TEXT_URL="https://download.sublimetext.com/sublime_text_build_4200_x64.tar.xz"
-MERGE_URL="https://download.sublimetext.com/sublime_merge_build_2121_x64.tar.xz"
+MERGE_URL="https://download.sublimetext.com/sublime_merge_build_2123_x64.tar.xz"
 
 # Optional checksums (leave empty to skip verification)
 TEXT_SHA256="36f69c551ad18ee46002be4d9c523fe545d93b67fea67beea731e724044b469f"
-MERGE_SHA256="c96aeb9437b90bdd0431055da443569c651171511dc4994591a9447cfa73b734"
+MERGE_SHA256="1f128ac1ce1d397d400cf9746b19f96c3af6d721b916caebcccc8af79a7ab32e"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${ROOT_DIR}/target"
@@ -203,8 +203,11 @@ validate_metainfo_xml() {
 # ========= Clean & prep =========
 log "Preparing structure and preliminary cleaning…"
 mkdir -p "${TARGET_DIR}"
-rm -rf "${TMP_DIR}"
-mkdir -p "${TMP_DIR}"
+if [[ -d "${TMP_DIR}" ]]; then
+  find "${TMP_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
+else
+  mkdir -p "${TMP_DIR}"
+fi
 
 mkdir -p "${TEXT_FILES_DIR}" "${MERGE_FILES_DIR}"
 
@@ -270,6 +273,8 @@ flatpak build-bundle "${TEXT_REPO_DIR}" "${TARGET_DIR}/sublime-text.flatpak" "${
 flatpak build-bundle "${MERGE_REPO_DIR}" "${TARGET_DIR}/sublime-merge.flatpak" "${MERGE_APPID}"
 
 # ========= Final clean (optional) =========
-rm -rf "${TMP_DIR}"
+if [[ -d "${TMP_DIR}" ]]; then
+  find "${TMP_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
+fi
 
 log "Building complete. Bundles ready in: ${TARGET_DIR}"

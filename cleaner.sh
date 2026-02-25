@@ -23,7 +23,7 @@ TARGET_DIR="${ROOT_DIR}/target"
 if exists_dir "${TARGET_DIR}"; then
   if has_content "${TARGET_DIR}"; then
     log "Emptying content from target/…"
-    rm -rf "${TARGET_DIR}/"*
+    find "${TARGET_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
   else
     warn "target/ is empty; nothing to clean up."
   fi
@@ -37,7 +37,7 @@ MERGE_FILES_DIR="${ROOT_DIR}/main/sublime-merge/files"
 if exists_dir "${MERGE_FILES_DIR}"; then
   if has_content "${MERGE_FILES_DIR}"; then
     log "Emptying contents of main/sublime-merge/files/…"
-    rm -rf "${MERGE_FILES_DIR}/"*
+    find "${MERGE_FILES_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
   else
     warn "main/sublime-merge/files/ is empty; nothing to clean up."
   fi
@@ -51,7 +51,7 @@ TEXT_FILES_DIR="${ROOT_DIR}/main/sublime-text/files"
 if exists_dir "${TEXT_FILES_DIR}"; then
   if has_content "${TEXT_FILES_DIR}"; then
     log "Emptying contents of main/sublime-text/files/…"
-    rm -rf "${TEXT_FILES_DIR}/"*
+    find "${TEXT_FILES_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
   else
     warn "main/sublime-text/files/ is empty; nothing to clean up."
   fi

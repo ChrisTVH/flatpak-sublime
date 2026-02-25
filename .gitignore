@@ -16,3 +16,8 @@ main/sublime-text/files/*
 
 # Built packages
 target/*
+
+# Preserve
+!main/sublime-merge/files/.gitkeep
+!main/sublime-text/files/.gitkeep
+!target/.gitkeep
