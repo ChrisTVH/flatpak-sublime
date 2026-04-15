@@ -24,12 +24,14 @@ if exists_dir "${TARGET_DIR}"; then
   if has_content "${TARGET_DIR}"; then
     log "Emptying content from target/…"
     find "${TARGET_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
+    touch "${TARGET_DIR}/.gitkeep"
   else
     warn "target/ is empty; nothing to clean up."
   fi
 else
   warn "The target/ folder does not exist; creating base structure…"
   mkdir -p "${TARGET_DIR}"
+  touch "${TARGET_DIR}/.gitkeep"
 fi
 
 # 3) Clear contents of main/sublime-merge/files/
@@ -38,12 +40,14 @@ if exists_dir "${MERGE_FILES_DIR}"; then
   if has_content "${MERGE_FILES_DIR}"; then
     log "Emptying contents of main/sublime-merge/files/…"
     find "${MERGE_FILES_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
+    touch "${MERGE_FILES_DIR}/.gitkeep"
   else
     warn "main/sublime-merge/files/ is empty; nothing to clean up."
   fi
 else
   warn "main/sublime-merge/files/ does not exist; creating base structure…"
   mkdir -p "${MERGE_FILES_DIR}"
+  touch "${MERGE_FILES_DIR}/.gitkeep"
 fi
 
 # 4) Clear contents of main/sublime-text/files/
@@ -52,12 +56,14 @@ if exists_dir "${TEXT_FILES_DIR}"; then
   if has_content "${TEXT_FILES_DIR}"; then
     log "Emptying contents of main/sublime-text/files/…"
     find "${TEXT_FILES_DIR}" -mindepth 1 ! -name ".gitkeep" -delete
+    touch "${TEXT_FILES_DIR}/.gitkeep"
   else
     warn "main/sublime-text/files/ is empty; nothing to clean up."
   fi
 else
   warn "There is no main/sublime-text/files/; creating base structure…"
   mkdir -p "${TEXT_FILES_DIR}"
+  touch "${TEXT_FILES_DIR}/.gitkeep"
 fi
 
 # 5) Delete build-dir and Sublime Merge repo

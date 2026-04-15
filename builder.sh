@@ -3,11 +3,11 @@ set -euo pipefail
 
 # ========= Config =========
 TEXT_URL="https://download.sublimetext.com/sublime_text_build_4200_x64.tar.xz"
-MERGE_URL="https://download.sublimetext.com/sublime_merge_build_2123_x64.tar.xz"
+MERGE_URL="https://download.sublimetext.com/sublime_merge_build_2125_x64.tar.xz"
 
 # Optional checksums (leave empty to skip verification)
 TEXT_SHA256="36f69c551ad18ee46002be4d9c523fe545d93b67fea67beea731e724044b469f"
-MERGE_SHA256="1f128ac1ce1d397d400cf9746b19f96c3af6d721b916caebcccc8af79a7ab32e"
+MERGE_SHA256="d1996fe2764c6f6143506e4a2e41d35c98dd4734dadd3b8d2f9e3269c15547f7"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${ROOT_DIR}/target"
@@ -71,6 +71,9 @@ sync_extracted_contents() {
 
   # Copy ONLY inner contents (not the root folder), normalize basic perms
   rsync -a --delete --chmod=u+rwX,go+rX "${topdir}/" "${dst_dir}/"
+
+  # Preserve .gitkeep if it was tracked in git
+  [[ -f "${dst_dir}/.gitkeep" ]] || touch "${dst_dir}/.gitkeep"
 
   # Ensure main binary is executable
   [[ -x "${dst_dir}/${app_name}" ]] || { chmod +x "${dst_dir}/${app_name}" || { err "Missing exec bit on ${app_name}"; exit 1; }; }
